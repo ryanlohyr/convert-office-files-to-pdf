@@ -2,7 +2,9 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import { convertDocxToPdf, convertPptxToPdf } from './converter';
-import { authenticateJWT, generateToken } from './auth';
+import { authenticateJWT } from './auth';
+import { validateDocxFile, validatePptxFile } from './utils';
+import { configureCors } from './cors';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -10,7 +12,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
+app.use(cors(configureCors()));
 app.use(express.json());
 
 // Configure multer for file uploads (in-memory storage)
@@ -26,23 +28,17 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'document-converter-service' });
 });
 
-// Generate test token endpoint (only enable in development!)
-if (process.env.NODE_ENV === 'development') {
-  app.get('/test/token', (req: Request, res: Response) => {
-    const token = generateToken();
-    res.json({ 
-      token,
-      usage: `Authorization: Bearer ${token}`,
-      warning: 'This endpoint is only available in development mode'
-    });
-  });
-}
-
 // Convert DOCX to PDF (protected by JWT authentication)
 app.post('/convert/docx', authenticateJWT, upload.single('file'), async (req: Request, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Validate file type
+    const validation = validateDocxFile(req.file);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
     }
 
     console.log(`[DOCX Conversion] Starting - Size: ${(req.file.size / (1024 * 1024)).toFixed(2)}MB`);
@@ -72,6 +68,12 @@ app.post('/convert/pptx', authenticateJWT, upload.single('file'), async (req: Re
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Validate file type
+    const validation = validatePptxFile(req.file);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
     }
 
     console.log(`[PPTX Conversion] Starting - Size: ${(req.file.size / (1024 * 1024)).toFixed(2)}MB`);
