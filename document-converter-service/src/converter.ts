@@ -59,3 +59,28 @@ export const convertPptxToPdf = async (pptxBuffer: Buffer): Promise<{ pdf: Buffe
   }
 };
 
+/**
+ * Convert a PPT file to PDF using LibreOffice
+ */
+export const convertPptToPdf = async (pptBuffer: Buffer): Promise<{ pdf: Buffer; metrics: ConversionMetrics }> => {
+  const startTime = Date.now();
+  const inputSizeMB = (pptBuffer.length / (1024 * 1024)).toFixed(2);
+  
+  try {
+    const pdfBuffer = await convertAsync(pptBuffer, '.pdf', undefined);
+    const durationMs = Date.now() - startTime;
+    const outputSizeMB = (pdfBuffer.length / (1024 * 1024)).toFixed(2);
+    
+    return {
+      pdf: pdfBuffer,
+      metrics: {
+        inputSizeMB,
+        outputSizeMB,
+        durationMs
+      }
+    };
+  } catch (error) {
+    throw new Error(`Failed to convert PPT to PDF: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+

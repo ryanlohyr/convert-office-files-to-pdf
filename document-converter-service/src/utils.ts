@@ -51,3 +51,25 @@ export const validatePptxFile = (file: Express.Multer.File): ValidationResult =>
   return { valid: true };
 };
 
+/**
+ * Validate that a file is a valid PPT file
+ */
+export const validatePptFile = (file: Express.Multer.File): ValidationResult => {
+  const validMimeTypes = [
+    'application/vnd.ms-powerpoint',
+    'application/octet-stream' // Some browsers send this for .ppt
+  ];
+  
+  const extension = file.originalname.toLowerCase().split('.').pop();
+  
+  if (extension !== 'ppt') {
+    return { valid: false, error: 'File must have .ppt extension' };
+  }
+  
+  if (!validMimeTypes.includes(file.mimetype)) {
+    return { valid: false, error: 'Invalid file type. Only PPT files are allowed' };
+  }
+  
+  return { valid: true };
+};
+

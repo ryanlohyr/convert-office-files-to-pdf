@@ -1,9 +1,9 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import multer from 'multer';
-import { convertDocxToPdf, convertPptxToPdf } from './converter';
+import { convertDocxToPdf, convertPptxToPdf, convertPptToPdf } from './converter';
 import { authenticateJWT } from './auth';
-import { validateDocxFile, validatePptxFile } from './utils';
+import { validateDocxFile, validatePptxFile, validatePptFile } from './utils';
 import { configureCors } from './cors';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -91,6 +91,41 @@ app.post('/convert/pptx', authenticateJWT, upload.single('file'), async (req: Re
     res.send(pdf);
   } catch (error) {
     console.error('[PPTX Conversion] Error:', error);
+    res.status(500).json({
+      error: 'Conversion failed',
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// Convert PPT to PDF (protected by JWT authentication)
+app.post('/convert/ppt', authenticateJWT, upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Validate file type
+    const validation = validatePptFile(req.file);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
+    }
+
+    console.log(`[PPT Conversion] Starting - Size: ${(req.file.size / (1024 * 1024)).toFixed(2)}MB`);
+    
+    const { pdf, metrics } = await convertPptToPdf(req.file.buffer);
+    
+    console.log(`[PPT Conversion] Success - Input: ${metrics.inputSizeMB}MB, Output: ${metrics.outputSizeMB}MB, Duration: ${metrics.durationMs}ms`);
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="converted.pdf"');
+    res.setHeader('X-Conversion-Duration', metrics.durationMs.toString());
+    res.setHeader('X-Input-Size-MB', metrics.inputSizeMB);
+    res.setHeader('X-Output-Size-MB', metrics.outputSizeMB);
+    
+    res.send(pdf);
+  } catch (error) {
+    console.error('[PPT Conversion] Error:', error);
     res.status(500).json({
       error: 'Conversion failed',
       message: error instanceof Error ? error.message : String(error)
